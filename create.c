@@ -3,6 +3,7 @@
 //
 #include "create.h"
 #include "header.h"
+#include "helper.h"
 
 #define BLOCK_SIZE 512
 int create_file(int read_fd, int write_fd)
@@ -162,8 +163,8 @@ int list_archive(char *tar_name)
             break;
         }
         printf("%s\n", header.name);
-        printf("Raw size: %s\n", header.size);
         unsigned int size = octal_to_num(header.size, sizeof(header.size));
+        printf("Raw size: %u\n", size);
         int blocks = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
         printf("Size: %u, Blocks: %d\n", size, blocks);
 
@@ -182,87 +183,87 @@ int list_archive(char *tar_name)
 
 int update_archive(char *tar_name, char **files, int file_count)
 {
-    // Temporary tar file name
-    char temp_tar_name[] = "temp_tar.XXXXXX";
-
-    // Create a temporary file. This will be our new archive.
-    int temp_dest = mkstemp(temp_tar_name);
-    if (temp_dest == -1)
+    char *temp_tar = generate_file();
+    if(!temp_tar)
     {
-        write_stderr("Error creating temporary tar file");
+        write_stderr("Error generating temp file");
         return 1;
     }
 
-    // Open the existing tar file for reading
+    int temp_dest = open(temp_tar, O_RDWR | O_CREAT, 0644);
+    if(temp_dest == -1)
+    {
+        write_stderr("Error creating temp file");
+        free(temp_tar);
+        return 1;
+    }
+
     int src = open(tar_name, O_RDONLY);
-    if (src == -1)
+    if(src == -1)
     {
         write_stderr("Error opening tar file");
         close(temp_dest);
-        unlink(temp_tar_name);
+        unlink(temp_tar);
+        free(temp_tar);
         return 1;
     }
-
     struct tar_header header;
-    while (read(src, &header, sizeof(header)) == sizeof(header))
+    while(read(src, &header, sizeof(header)) == sizeof(header))
     {
         unsigned int size = octal_to_num(header.size, sizeof(header.size));
-        int blocks = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
-
-        int file_exists_in_new_list = 0;
-        for (int i = 0; i < file_count; i++)
+        int blocks = (size + BLOCK_SIZE -1) / BLOCK_SIZE;
+        int file_in_list = 0;
+        for(int i = 0; i < file_count; i++)
         {
-            if (my_strcmp(header.name, files[i]) == 0)
+            if(my_strcmp(header.name, files[i]) == 0)
             {
                 struct stat file_stat;
-                if (stat(files[i], &file_stat) != 0)
+                if(stat(files[i], &file_stat) != 0)
                 {
                     write_stderr("Error getting file information");
                     close(src);
                     close(temp_dest);
-                    unlink(temp_tar_name);
+                    unlink(temp_tar);
+                    free(temp_tar);
                     return 1;
                 }
-
-                unsigned int archived_mtime = octal_to_num(header.mtime, sizeof(header.mtime));
-                if (file_stat.st_mtime > (time_t) archived_mtime)
+                unsigned int tar_mtime = octal_to_num(header.mtime, sizeof(header.mtime));
+                if(file_stat.st_mtime > (time_t) tar_mtime)
                 {
-                    // New file is newer. Add the newer file to temp archive and skip the older one.
                     write_header(files[i], &header);
                     write(temp_dest, &header, sizeof(header));
-                    if (header.typeflag != '5')
+                    if(header.typeflag != '5')
                     {
                         int file_fd = open(files[i], O_RDONLY);
-                        if (file_fd == -1)
+                        if(file_fd == -1)
                         {
                             write_stderr("Error opening file");
                             close(src);
                             close(temp_dest);
-                            unlink(temp_tar_name);
+                            unlink(temp_tar);
+                            free(temp_tar);
                             return 1;
                         }
-                        if (create_file(file_fd, temp_dest) != 0)
-                        {
+                        if(create_file(file_fd, temp_dest) != 0){
                             close(file_fd);
                             close(src);
                             close(temp_dest);
-                            unlink(temp_tar_name);
+                            unlink(temp_tar);
+                            free(temp_tar);
                             return 1;
                         }
                         close(file_fd);
                     }
                 }
-                file_exists_in_new_list = 1;
+                file_in_list = 1;
                 break;
             }
         }
-
-        if (!file_exists_in_new_list)
+        if(!file_in_list)
         {
-            // Add the old file from the source tar to the temp archive.
             write(temp_dest, &header, sizeof(header));
             char buffer[BLOCK_SIZE];
-            for (int b = 0; b < blocks; b++)
+            for(int i = 0; i < blocks; i++)
             {
                 read(src, buffer, BLOCK_SIZE);
                 write(temp_dest, buffer, BLOCK_SIZE);
@@ -270,29 +271,82 @@ int update_archive(char *tar_name, char **files, int file_count)
         }
         else
         {
-            // Skip the old file data in the source tar.
             lseek(src, blocks * BLOCK_SIZE, SEEK_CUR);
         }
     }
-
     close(src);
-
-    // Write the two 512-byte blocks of zeros to mark the end of the temporary archive
-    char end_of_archive[1024] = {0};
-    write(temp_dest, end_of_archive, 1024);
-
     close(temp_dest);
-
-    // Replace the old tar with the new tar.
-    if (rename(temp_tar_name, tar_name) != 0)
+    if(unlink(tar_name) == -1 || link(temp_tar, tar_name) == -1 || unlink(temp_tar) == -1)
     {
-        write_stderr("Error renaming temporary tar file");
-        unlink(temp_tar_name);
+        write_stderr("Error replacing the tar file");
+        free(temp_tar);
         return 1;
     }
-
+    free(temp_tar);
     return 0;
 }
 
+int extract_archive(const char *tar_name)
+{
+    int tar_fd = open(tar_name, O_RDONLY);
+    if(tar_fd == -1)
+    {
+        write_stderr("Error opening tar file");
+        return 1;
+    }
+    struct tar_header header;
+    while(read(tar_fd, &header, sizeof(header)) == sizeof(header))
+    {
+        if(my_strlen(header.name) == 0)
+        {
+            break;
+        }
+        unsigned int size = octal_to_num(header.size, sizeof(header.size));
+        int blocks = (size + BLOCK_SIZE -1) / BLOCK_SIZE;
+        if(header.typeflag == '5')
+        {
+            mkdir(header.name, 0755);
+        } else if(header.typeflag == '2')
+        {
+            char link_target[100];
+            my_strncpy(link_target, header.linkname, sizeof(header.linkname));
+            symlink(link_target, header.name);
+        } else
+        {
+            int file_fd = open(header.name, O_WRONLY | O_CREAT, 0644);
+            if(file_fd == -1)
+            {
+                write_stderr("Error creating file for extraction");
+                close(tar_fd);
+                return 1;
+            }
+            char buffer[BLOCK_SIZE];
+            for(int i = 0; i < blocks; i++)
+            {
+                if(read(tar_fd, buffer, sizeof(buffer)) != sizeof(buffer))
+                {
+                    write_stderr("Error reading file content from tar");
+                    close(file_fd);
+                    close(tar_fd);
+                    return 1;
+                }
+                int bytes_to_write;
+                if(i == blocks -1)
+                {
+                    bytes_to_write = size % BLOCK_SIZE;
+                } else
+                {
+                    bytes_to_write = sizeof(buffer);
+                }
+                write(file_fd, buffer, bytes_to_write);
+
+            }
+            close(file_fd);
+        }
+    }
+    close(tar_fd);
+    return 0;
+
+}
 
 

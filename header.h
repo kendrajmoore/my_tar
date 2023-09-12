@@ -12,6 +12,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include "helper.h"
 
 struct tar_header {
     char name[100];
@@ -33,12 +35,6 @@ struct tar_header {
     char padding[12];
 };
 
-int my_strlen(const char* input);
-char *my_strncpy(char *dest, const char *src, int num);
-int my_strcmp (char * param_1, char * param_2);
-void write_stderr(const char *error_message);
-void num_to_octal(char *string, int length, unsigned int num);
-unsigned int octal_to_num(const char *string, int length);
 void set_prefix(struct tar_header *header, const char *filename);
 void dev_info(struct tar_header *header, const struct stat *system_stat);
 void calculate_checksum(struct tar_header *header);
@@ -48,5 +44,6 @@ void set_string_values(struct tar_header *header);
 void set_permissions(struct tar_header *header, const struct stat *system_stat);
 void set_typeflag(struct tar_header *header, const struct stat *system_stat, const char *filename);
 void write_header(const char *filename, struct tar_header *header);
+
 
 #endif //MY_TAR_HEADER_H

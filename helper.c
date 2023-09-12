@@ -4,6 +4,11 @@
 
 //https://www.gnu.org/software/tar/manual/html_node/Standard.html
 //u
+#include "helper.h"
+
+#define TEMP_DIR "/tmp"
+#define MAX_TRIES 10
+
 int my_strlen(const char* input)
 {
     int length = 0;
@@ -72,7 +77,7 @@ void num_to_octal(char *string, int length, unsigned int num)
     }
     for(int i = 0; i < length; i++)
     {
-        string[i] = ' ';
+        string[i] = '0';
     }
     //start writing at second to last space, last space is ' '
     int position = length - 2;
@@ -87,15 +92,104 @@ void num_to_octal(char *string, int length, unsigned int num)
         num >>= 3; //right shift num by 3 bitws
         position--;
     }
-
+    string[length -1] = '\0';
 }
 
 unsigned int octal_to_num(const char *string, int length)
 {
     unsigned int result = 0;
-    for(int i = 0; i < length && (string[i] != ' ' || (i < length-1 && string[i+1] != ' ')); i++)
+    for(int i = 0; i < length && string[i] != '\0'; i++)
     {
         result = (result << 3) + (string[i] - '0');
     }
     return result;
 }
+
+void int_to_str(int num, char *string)
+{
+    int idx = 0;
+    if(num == 0)
+    {
+        string[idx] = '0';
+        idx++;
+    }
+    while(num)
+    {
+        string[idx] = (num % 10) + '0';
+        idx++;
+        num /= 10;
+    }
+    for(int i = 0; i < idx / 2; i++)
+    {
+        char temp = string[i];
+        string[i] = string[idx - i -1];
+        string[idx - i -1] = temp;
+    }
+    string[idx] = '\0';
+}
+
+char *generate_file()
+{
+    char *temp_file = (char*)malloc(256);
+    if(!temp_file)
+    {
+        return NULL;
+    }
+    int attempts = 0;
+    while(attempts < MAX_TRIES)
+    {
+        char time_string[20] = {0};
+        char pid_string[10] = {0};
+        char random_string[10] = {0};
+
+        char *ptr = temp_file;
+        char *base = TEMP_DIR "/tempfile_";
+        while((*ptr = *base))
+        {
+            ptr++;
+            base++;
+        }
+        time_t now;
+        time(&now);
+        int_to_str((int)now, time_string);
+        char *t_ptr = time_string;
+        while((*ptr = *t_ptr))
+        {
+            ptr++;
+            t_ptr++;
+        }
+        *ptr = '-';
+        *ptr++;
+        int_to_str(getpid(), pid_string);
+        char *p_ptr = pid_string;
+        while((*ptr = *p_ptr))
+        {
+            ptr++;
+            p_ptr++;
+        }
+        *ptr = '-';
+        int_to_str(rand(), random_string);
+        char *r_ptr = random_string;
+        while((*ptr = *r_ptr))
+        {
+            ptr++;
+            r_ptr++;
+        }
+        char *extension = ".tmp";
+        while((*ptr = *extension))
+        {
+            ptr++;
+            extension++;
+        }
+        struct stat buffer;
+        if(stat(temp_file, &buffer) != 0)
+        {
+            return temp_file;
+        }
+        attempts++;
+    }
+    free(temp_file);
+    return NULL;
+}
+
+

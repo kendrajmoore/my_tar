@@ -16,6 +16,8 @@ int main(int argc, char *argv[])
 //    printf("%d\n", file_count);
     switch(mode)
     {
+        case 'x':
+            return extract_archive(tar_name);
         case 'u':
             return update_archive(tar_name, files, file_count);
         case 't':

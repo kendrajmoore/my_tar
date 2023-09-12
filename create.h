@@ -10,5 +10,6 @@ int create_archive(char *tar_name, char **files, int file_count);
 int append_to_archive(char *tar_name, char **files, int file_count);
 int list_archive(char *tar_name);
 int update_archive(char *tar_name, char **files, int file_count);
+int extract_archive(const char *tar_name);
 
 #endif //MY_TAR_CREATE_H
