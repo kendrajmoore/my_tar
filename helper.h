@@ -19,6 +19,8 @@
 
 int my_strlen(const char* input);
 char *my_strncpy(char *dest, const char *src, int num);
+char *my_strcpy(char *dest, const char *src);
+int my_strncmp(char *param_1, char *param_2, int size);
 int my_strcmp (char * param_1, char * param_2);
 void write_stderr(const char *error_message);
 void num_to_octal(char *string, int length, unsigned int num);

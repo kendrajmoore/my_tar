@@ -4,8 +4,62 @@
 #include "create.h"
 #include "header.h"
 #include "helper.h"
+int open_read(char *filename)
+{
+    int fd_read = open(filename,  O_RDONLY);
+    if(fd_read == -1)
+    {
+        write_stderr("Error");
+        return 1;
+    }
+    return fd_read;
 
-#define BLOCK_SIZE 512
+}
+
+int open_read_write(char *filename)
+{
+    int fd_rw = open(filename, O_RDWR);
+    if(fd_rw == -1)
+    {
+        write_stderr("Error");
+        return 1;
+    }
+    return fd_rw;
+}
+
+int open_write(char *filename)
+{
+    int fd_wr = open(filename, O_WRONLY | O_CREAT, 0644);
+    if(fd_wr == -1)
+    {
+        write_stderr("Error");
+        return 1;
+    }
+    return fd_wr;
+}
+
+void block_math(int total_bytes_received, int write_fd)
+{
+    int remainder = total_bytes_received % BLOCK_SIZE;
+    if (remainder != 0) {
+        int padding_num = BLOCK_SIZE - remainder;
+        char padding_char = '\0';
+        char padding[padding_num];
+        for (int i = 0; i < padding_num; i++) {
+            my_strncpy(&padding[i], &padding_char, 1);
+        }
+        write(write_fd, padding, padding_num);
+
+    }
+}
+
+void end_padding(int dest)
+{
+    char end_of_archive[ADD_PADDING] = {0};
+    write(dest, end_of_archive, ADD_PADDING);
+}
+
+
 int create_file(int read_fd, int write_fd)
 {
     char buffer[BLOCK_SIZE];
@@ -29,56 +83,30 @@ int create_file(int read_fd, int write_fd)
         close(write_fd);
         return 1;
     }
-    int remainder = total_bytes_received % BLOCK_SIZE;
-    if(remainder != 0)
-    {
-        int padding_num = BLOCK_SIZE - remainder;
-        char padding_char = '\0';
-        char padding[padding_num];
-        for(int i = 0; i < padding_num; i++)
-        {
-            my_strncpy(&padding[i], &padding_char, 1);
-        }
-        write(write_fd, padding, padding_num);
-
-    }
+    block_math(total_bytes_received, write_fd);
     return 0;
 }
 
 int create_archive(char *tar_name, char **files, int file_count)
 {
-    int dest = open(tar_name, O_WRONLY | O_CREAT, 0644 );
-    if(!dest)
-    {
-        write_stderr("Error");
-        return 1;
-    }
+    int dest = open_write(tar_name);
     struct tar_header header;
     for(int i = 0; i < file_count; i++) {
         write_header(files[i], &header);
         write(dest, &header, sizeof(header));
         if(header.typeflag != '5')
         {
-            int src = open(files[i], O_RDONLY);
-            if(src == -1)
-            {
-                close(dest);
-                return 1;
-            }
+            int src = open_read(files[i]);
             if(create_file(src, dest) != 0)
             {
                 close(src);
                 close(dest);
                 return 1;
-
             }
             close(src);
-
         }
     }
-    char end_of_archive[1024] = {0};
-    write(dest, end_of_archive, 1024);
-
+    end_padding(dest);
     close(dest);
     return 0;
 }
@@ -86,13 +114,7 @@ int create_archive(char *tar_name, char **files, int file_count)
 int append_to_archive(char *tar_name, char **files, int file_count)
 {
     // Open the existing tar file for reading and writing
-    int dest = open(tar_name, O_RDWR);
-    if (dest == -1)
-    {
-        write_stderr("Error opening tar file");
-        return 1;
-    }
-
+    int dest = open_read_write(tar_name);
     // Seek to the end of the tar file to find the two 512-byte blocks of zeros
     off_t current_position = lseek(dest, -1024, SEEK_END);
     if (current_position == -1)
@@ -101,7 +123,6 @@ int append_to_archive(char *tar_name, char **files, int file_count)
         close(dest);
         return 1;
     }
-
     struct tar_header header;
     for (int i = 0; i < file_count; i++)
     {
@@ -111,13 +132,7 @@ int append_to_archive(char *tar_name, char **files, int file_count)
         if (header.typeflag != '5')
         {
             // If it's not a directory, write the file contents
-            int src = open(files[i], O_RDONLY);
-            if (src == -1)
-            {
-                write_stderr("Error opening file");
-                close(dest);
-                return 1;
-            }
+            int src = open_read(files[i]);
             if (create_file(src, dest) != 0)
             {
                 close(src);
@@ -127,23 +142,15 @@ int append_to_archive(char *tar_name, char **files, int file_count)
             close(src);
         }
     }
-
     // Write the two 512-byte blocks of zeros to mark the end of the archive
-    char end_of_archive[1024] = {0};
-    write(dest, end_of_archive, 1024);
-
+    end_padding(dest);
     close(dest);
     return 0;
 }
 
 int list_archive(char *tar_name)
 {
-    int dest = open(tar_name, O_RDONLY);
-    if(dest == -1)
-    {
-        write_stderr("Error opening tar file.");
-        return 1;
-    }
+    int dest = open_read(tar_name);
     struct tar_header header;
     while(1)
     {
@@ -162,12 +169,8 @@ int list_archive(char *tar_name)
         {
             break;
         }
-        printf("%s\n", header.name);
         unsigned int size = octal_to_num(header.size, sizeof(header.size));
-        printf("Raw size: %u\n", size);
         int blocks = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
-        printf("Size: %u, Blocks: %d\n", size, blocks);
-
         if(lseek(dest, blocks * BLOCK_SIZE, SEEK_CUR) == -1)
         {
             write_stderr("Error seeking in a tar file");
@@ -189,24 +192,8 @@ int update_archive(char *tar_name, char **files, int file_count)
         write_stderr("Error generating temp file");
         return 1;
     }
-
-    int temp_dest = open(temp_tar, O_RDWR | O_CREAT, 0644);
-    if(temp_dest == -1)
-    {
-        write_stderr("Error creating temp file");
-        free(temp_tar);
-        return 1;
-    }
-
-    int src = open(tar_name, O_RDONLY);
-    if(src == -1)
-    {
-        write_stderr("Error opening tar file");
-        close(temp_dest);
-        unlink(temp_tar);
-        free(temp_tar);
-        return 1;
-    }
+    int temp_dest = open_read_write(temp_tar);
+    int src = open_read(tar_name);
     struct tar_header header;
     while(read(src, &header, sizeof(header)) == sizeof(header))
     {
@@ -288,12 +275,7 @@ int update_archive(char *tar_name, char **files, int file_count)
 
 int extract_archive(const char *tar_name)
 {
-    int tar_fd = open(tar_name, O_RDONLY);
-    if(tar_fd == -1)
-    {
-        write_stderr("Error opening tar file");
-        return 1;
-    }
+    int tar_fd = open_read(tar_name);
     struct tar_header header;
     while(read(tar_fd, &header, sizeof(header)) == sizeof(header))
     {
@@ -313,13 +295,7 @@ int extract_archive(const char *tar_name)
             symlink(link_target, header.name);
         } else
         {
-            int file_fd = open(header.name, O_WRONLY | O_CREAT, 0644);
-            if(file_fd == -1)
-            {
-                write_stderr("Error creating file for extraction");
-                close(tar_fd);
-                return 1;
-            }
+            int file_fd = open_write(header.name);
             char buffer[BLOCK_SIZE];
             for(int i = 0; i < blocks; i++)
             {

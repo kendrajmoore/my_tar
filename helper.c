@@ -36,6 +36,13 @@ char *my_strncpy(char *dest, const char *src, int num)
     return old_dest;
 }
 
+char *my_strcpy(char *dest, const char *src)
+{
+    char *old_dest = dest;
+    while((*dest++ = *src++));
+    return old_dest;
+}
+
 int my_strcmp (char * param_1, char * param_2)
 {
     int sum_1 = 0, sum_2 = 0;
@@ -59,6 +66,29 @@ int my_strcmp (char * param_1, char * param_2)
         return 1;
     else
         return 0;
+}
+
+int my_strncmp(char *param_1, char *param_2, int size)
+{
+    if(size == 0)
+    {
+        return 0;
+    }
+    while(*param_1 && param_2 && size)
+    {
+        if(*param_1 != *param_2)
+        {
+            return (unsigned char)*param_1 - (unsigned char)*param_2;
+        }
+        param_1++;
+        param_2++;
+        size--;
+    }
+    if(size)
+    {
+        return (unsigned char)*param_1 - (unsigned char)*param_2;
+    }
+    return 0;
 }
 //custom function to write to stderr
 void write_stderr(const char *error_message)
