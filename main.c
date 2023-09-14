@@ -69,18 +69,16 @@ options_t * get_options(char ** av)
     return ret;
 }
 
-int is_tar(char *input)
+int is_tar(char *input) // change to check .tar
 {
-    char magic[6];
-    int fd = open(input, O_RDONLY);
-    lseek(fd, 257, SEEK_SET);
-    int bytes_read = read(fd, magic, 6);
-    close(fd);
-    if(bytes_read < 6)
+    int len = my_strlen(input);
+    int min_length = 4;
+    if(len < min_length)
     {
         return 0;
     }
-    if(my_strncmp(magic, "ustar", 5) == 0)
+    const char *ending = input + len -4;
+    if(my_strcmp(ending, ".tar") == 0)
     {
         return 1;
     }
@@ -88,53 +86,75 @@ int is_tar(char *input)
 }
 
 
+
 int main(int argc, char *argv[])
 {
-    char mode = argv[2][1];
-//    printf("%c\n", mode);
-    int count = argc - 2;
-    char file[count][150];
-    int start = 0;
-    char tar_file[150];
-    for(int i = 3; i < argc; i++)
-    {
-        if(is_tar(argv[i]))
-        {
-            my_strcpy(tar_file, argv[i]);
 
-        } else {
-            my_strcpy(file[start], argv[i]);
-            start++;
-        }
-    }
-    char *tar_name = argv[3];
-//    printf("%s\n", tar_name);
-    char **files = &argv[4];
-//    printf("%s\n", *files);
-    int file_count = argc - 4;
-//    printf("%d\n", file_count);
-    options_t * opts = get_options(argv);
-    printf("\nc: %d, f: %d, r: %d, t: %d, u: %d, x: %d\n", opts->c, opts->f, opts->r, opts->t, opts->u, opts->x);
-    for(int i = 0; i < start; i++)
+//    printf("%c\n", mode);
+    char mode = argv[2][1];
+    int file_count = argc - 3;
+//    char file[count][150];
+    char tar_name[150];
+    int start = 0;
+    if(is_tar(argv[3]))
     {
-        printf("%s\n", file[i]);
+        start = 4;
+        file_count -= 1;
+        my_strcpy(tar_name, argv[3]);
+    } else {
+        start = 3;
+        my_strcpy(tar_name, "default");
     }
-    switch(mode)
+        switch(mode)
     {
         case 'x':
             return extract_archive(tar_name);
         case 'u':
-            return update_archive(tar_name, files, file_count);
+            return update_archive(tar_name, &argv[start], file_count);
         case 't':
             return list_archive(tar_name);
         case 'r':
-            return append_to_archive(tar_name, files, file_count);
+            return append_to_archive(tar_name, &argv[start], file_count);
         case 'c':
-            return create_archive(tar_name, files, file_count);
+            return create_archive(tar_name, &argv[start], file_count);
         default:
             return 1;
     }
-    free(opts);
+
+
+//    for(int i = start; i < argc; i++)
+//    {
+//
+//        create_archive(tar_file, &argv[start],  count);
+//    }
+//    char *tar_name = argv[3];
+////    printf("%s\n", tar_name);
+//    char **files = &argv[4];
+////    printf("%s\n", *files);
+//    int file_count = argc - 4;
+////    printf("%d\n", file_count);
+//    options_t * opts = get_options(argv);
+//    printf("\nc: %d, f: %d, r: %d, t: %d, u: %d, x: %d\n", opts->c, opts->f, opts->r, opts->t, opts->u, opts->x);
+//    for(int i = 0; i < start; i++)
+//    {
+//        printf("%s\n", file[i]);
+//    }
+//    switch(mode)
+//    {
+//        case 'x':
+//            return extract_archive(tar_name);
+//        case 'u':
+//            return update_archive(tar_name, files, file_count);
+//        case 't':
+//            return list_archive(tar_name);
+//        case 'r':
+//            return append_to_archive(tar_name, files, file_count);
+//        case 'c':
+//            return create_archive(tar_name, files, file_count);
+//        default:
+//            return 1;
+//    }
+//    free(opts);
 
 //    if(argc < 2)
 //    {

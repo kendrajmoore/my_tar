@@ -170,6 +170,8 @@ int list_archive(char *tar_name)
             break;
         }
         unsigned int size = octal_to_num(header.size, sizeof(header.size));
+        write(1, header.name, my_strlen(header.name));
+        write(1, "\n", 1);
         int blocks = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
         if(lseek(dest, blocks * BLOCK_SIZE, SEEK_CUR) == -1)
         {
