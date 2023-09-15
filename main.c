@@ -121,45 +121,5 @@ int main(int argc, char *argv[])
             return 1;
     }
 
-
-//    for(int i = start; i < argc; i++)
-//    {
-//
-//        create_archive(tar_file, &argv[start],  count);
-//    }
-//    char *tar_name = argv[3];
-////    printf("%s\n", tar_name);
-//    char **files = &argv[4];
-////    printf("%s\n", *files);
-//    int file_count = argc - 4;
-////    printf("%d\n", file_count);
-//    options_t * opts = get_options(argv);
-//    printf("\nc: %d, f: %d, r: %d, t: %d, u: %d, x: %d\n", opts->c, opts->f, opts->r, opts->t, opts->u, opts->x);
-//    for(int i = 0; i < start; i++)
-//    {
-//        printf("%s\n", file[i]);
-//    }
-//    switch(mode)
-//    {
-//        case 'x':
-//            return extract_archive(tar_name);
-//        case 'u':
-//            return update_archive(tar_name, files, file_count);
-//        case 't':
-//            return list_archive(tar_name);
-//        case 'r':
-//            return append_to_archive(tar_name, files, file_count);
-//        case 'c':
-//            return create_archive(tar_name, files, file_count);
-//        default:
-//            return 1;
-//    }
-//    free(opts);
-
-//    if(argc < 2)
-//    {
-//        return 1;
-//    }
-    return 0;
 }
 

@@ -4,14 +4,9 @@
 
 #ifndef MY_TAR_CREATE_H
 #define MY_TAR_CREATE_H
-#define BLOCK_SIZE 512
-#define ADD_PADDING 1024
+#include "helper.h"
 
-int create_file(int read_fd, int write_fd);
-int open_read(char *filename);
-int open_read_write(char *filename);
-int open_write(char *filename);
-void block_math(int total_bytes_received, int write_fd);
+int stream_archive(int read_fd, int write_fd);
 int create_archive(char *tar_name, char **files, int file_count);
 int append_to_archive(char *tar_name, char **files, int file_count);
 int list_archive(char *tar_name);

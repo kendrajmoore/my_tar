@@ -4,6 +4,7 @@
 
 //https://www.gnu.org/software/tar/manual/html_node/Standard.html
 //u
+#include <dirent.h>
 #include "helper.h"
 
 #define TEMP_DIR "/tmp"
@@ -68,28 +69,21 @@ int my_strcmp (char * param_1, char * param_2)
         return 0;
 }
 
-int my_strncmp(char *param_1, char *param_2, int size)
+char *my_strncat(char *dest, const char *src, size_t count)
 {
-    if(size == 0)
+    char *original_dest = dest;
+    while(*dest)
     {
-        return 0;
+        dest++;
     }
-    while(*param_1 && param_2 && size)
+    while(count-- && *src)
     {
-        if(*param_1 != *param_2)
-        {
-            return (unsigned char)*param_1 - (unsigned char)*param_2;
-        }
-        param_1++;
-        param_2++;
-        size--;
+        *dest++ = *src++;
     }
-    if(size)
-    {
-        return (unsigned char)*param_1 - (unsigned char)*param_2;
-    }
-    return 0;
+    *dest = '\0';
+    return original_dest;
 }
+
 //custom function to write to stderr
 void write_stderr(const char *error_message)
 {
@@ -97,6 +91,63 @@ void write_stderr(const char *error_message)
     write(2, error_message, length);
     write(2, "\n", 1);
 }
+
+int open_read(const char *filename)
+{
+    int fd_read = open(filename,  O_RDONLY);
+    if(fd_read == -1)
+    {
+        write_stderr("Error");
+        return 1;
+    }
+    return fd_read;
+
+}
+
+int open_read_write(const char *filename)
+{
+    int fd_rw = open(filename, O_RDWR);
+    if(fd_rw == -1)
+    {
+        write_stderr("Error");
+        return 1;
+    }
+    return fd_rw;
+}
+
+int open_write(const char *filename)
+{
+    int fd_wr = open(filename, O_WRONLY | O_CREAT, 0644);
+    if(fd_wr == -1)
+    {
+        write_stderr("Error");
+        return 1;
+    }
+    return fd_wr;
+}
+
+void block_math(int total_bytes_received, int write_fd)
+{
+    int remainder = total_bytes_received % BLOCK_SIZE;
+    if (remainder != 0) {
+        int padding_num = BLOCK_SIZE - remainder;
+        char padding_char = '\0';
+        char padding[padding_num];
+        for (int i = 0; i < padding_num; i++) {
+            my_strncpy(&padding[i], &padding_char, 1);
+        }
+        write(write_fd, padding, padding_num);
+
+    }
+}
+
+void end_padding(int dest)
+{
+    char end_of_archive[ADD_PADDING] = {0};
+    write(dest, end_of_archive, ADD_PADDING);
+}
+
+
 //convert mode, uid, gid, size, mtime from chars to octal
 void num_to_octal(char *string, int length, unsigned int num)
 {   //make a string with spaces
@@ -222,4 +273,65 @@ char *generate_file()
     return NULL;
 }
 
+int write_archive(int dest, char *path, struct tar_header *header)
+{
+    struct stat file_stat;
+    if(stat(path, &file_stat) != 0)
+    {
+        write_stderr("Cannot find that file or directory");
+        return 1;
+    }
+    if(S_ISDIR(file_stat.st_mode))
+    {
+        DIR *dir = opendir(path);
+        if(!dir)
+        {
+            write_stderr("Cannot open the directoru");
+            close(dest);
+            return 1;
+        }
+        struct dirent *item;
+        while((item = readdir(dir)) != NULL)
+        {
+            if(my_strcmp(item->d_name, ".") == 0 || my_strcmp(item->d_name, "..") == 0)
+            {
+                continue;
+            }
+            char full_path[1024];
+            my_strncpy(full_path, path, sizeof(full_path) -1);
+            my_strncat(full_path, "/", sizeof(full_path) - my_strlen(full_path) -1);
+            my_strncat(full_path, item->d_name, sizeof(full_path) - my_strlen(full_path) -1);
+            if(write_archive(dest, full_path, header))
+            {
+                closedir(dir);
+                return 1;
+            }
+        }
+        closedir(dir);
+    } else if(S_ISREG(file_stat.st_mode))
+    {
+        int src = open(path, O_RDONLY);
+        if(src == -1)
+        {
+            write_stderr("Cannot read the file");
+        }
+        if(stream_archive(src, dest))
+        {
+            close(src);
+            return 1;
+        }
+        close(src);
+    }
+    return 0;
 
+}
+
+int read_archive(int tar_fd, struct tar_header *header)
+{
+    if(read(tar_fd, header, sizeof(header)) != sizeof(header))
+    {
+        write_stderr("Error reading tar file");
+        return 1;
+    }
+    return 0;
+}

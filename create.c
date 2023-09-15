@@ -4,63 +4,9 @@
 #include "create.h"
 #include "header.h"
 #include "helper.h"
-int open_read(char *filename)
-{
-    int fd_read = open(filename,  O_RDONLY);
-    if(fd_read == -1)
-    {
-        write_stderr("Error");
-        return 1;
-    }
-    return fd_read;
-
-}
-
-int open_read_write(char *filename)
-{
-    int fd_rw = open(filename, O_RDWR);
-    if(fd_rw == -1)
-    {
-        write_stderr("Error");
-        return 1;
-    }
-    return fd_rw;
-}
-
-int open_write(char *filename)
-{
-    int fd_wr = open(filename, O_WRONLY | O_CREAT, 0644);
-    if(fd_wr == -1)
-    {
-        write_stderr("Error");
-        return 1;
-    }
-    return fd_wr;
-}
-
-void block_math(int total_bytes_received, int write_fd)
-{
-    int remainder = total_bytes_received % BLOCK_SIZE;
-    if (remainder != 0) {
-        int padding_num = BLOCK_SIZE - remainder;
-        char padding_char = '\0';
-        char padding[padding_num];
-        for (int i = 0; i < padding_num; i++) {
-            my_strncpy(&padding[i], &padding_char, 1);
-        }
-        write(write_fd, padding, padding_num);
-
-    }
-}
-
-void end_padding(int dest)
-{
-    char end_of_archive[ADD_PADDING] = {0};
-    write(dest, end_of_archive, ADD_PADDING);
-}
 
 
-int create_file(int read_fd, int write_fd)
+int stream_archive(int read_fd, int write_fd)
 {
     char buffer[BLOCK_SIZE];
     int total_bytes_received = 0;
@@ -92,18 +38,9 @@ int create_archive(char *tar_name, char **files, int file_count)
     int dest = open_write(tar_name);
     struct tar_header header;
     for(int i = 0; i < file_count; i++) {
-        write_header(files[i], &header);
-        write(dest, &header, sizeof(header));
-        if(header.typeflag != '5')
+        if(write_archive(dest, files[i], &header))
         {
-            int src = open_read(files[i]);
-            if(create_file(src, dest) != 0)
-            {
-                close(src);
-                close(dest);
-                return 1;
-            }
-            close(src);
+            return 1;
         }
     }
     end_padding(dest);
@@ -126,20 +63,9 @@ int append_to_archive(char *tar_name, char **files, int file_count)
     struct tar_header header;
     for (int i = 0; i < file_count; i++)
     {
-        write_header(files[i], &header);
-        write(dest, &header, sizeof(header));
-
-        if (header.typeflag != '5')
+        if(write_archive(dest, files[i], &header))
         {
-            // If it's not a directory, write the file contents
-            int src = open_read(files[i]);
-            if (create_file(src, dest) != 0)
-            {
-                close(src);
-                close(dest);
-                return 1;
-            }
-            close(src);
+            return 1;
         }
     }
     // Write the two 512-byte blocks of zeros to mark the end of the archive
@@ -154,18 +80,11 @@ int list_archive(char *tar_name)
     struct tar_header header;
     while(1)
     {
-        int total_bytes_received = read(dest, &header, sizeof(header));
-        if(total_bytes_received == -1)
+        if(read_archive(dest, &header))
         {
-            write_stderr("Error reading from tar file.");
-            close(dest);
             return 1;
         }
-        if(total_bytes_received == 0)
-        {
-            break;
-        }
-        if(header.name[0] == '\0')
+        if(my_strlen(header.name) == 0)
         {
             break;
         }
@@ -197,7 +116,7 @@ int update_archive(char *tar_name, char **files, int file_count)
     int temp_dest = open_read_write(temp_tar);
     int src = open_read(tar_name);
     struct tar_header header;
-    while(read(src, &header, sizeof(header)) == sizeof(header))
+    while(read_archive(src, &header) == 0)
     {
         unsigned int size = octal_to_num(header.size, sizeof(header.size));
         int blocks = (size + BLOCK_SIZE -1) / BLOCK_SIZE;
@@ -219,30 +138,12 @@ int update_archive(char *tar_name, char **files, int file_count)
                 unsigned int tar_mtime = octal_to_num(header.mtime, sizeof(header.mtime));
                 if(file_stat.st_mtime > (time_t) tar_mtime)
                 {
-                    write_header(files[i], &header);
-                    write(temp_dest, &header, sizeof(header));
-                    if(header.typeflag != '5')
+                    if(write_archive(temp_dest, files[i], &header))
                     {
-                        int file_fd = open(files[i], O_RDONLY);
-                        if(file_fd == -1)
-                        {
-                            write_stderr("Error opening file");
-                            close(src);
-                            close(temp_dest);
-                            unlink(temp_tar);
-                            free(temp_tar);
-                            return 1;
-                        }
-                        if(create_file(file_fd, temp_dest) != 0){
-                            close(file_fd);
-                            close(src);
-                            close(temp_dest);
-                            unlink(temp_tar);
-                            free(temp_tar);
-                            return 1;
-                        }
-                        close(file_fd);
+                        free(temp_tar);
+                        return 1;
                     }
+
                 }
                 file_in_list = 1;
                 break;
@@ -324,7 +225,6 @@ int extract_archive(const char *tar_name)
     }
     close(tar_fd);
     return 0;
-
 }
 
 
