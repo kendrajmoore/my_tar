@@ -89,11 +89,8 @@ int is_tar(char *input) // change to check .tar
 
 int main(int argc, char *argv[])
 {
-
-//    printf("%c\n", mode);
     char mode = argv[2][1];
     int file_count = argc - 3;
-//    char file[count][150];
     char tar_name[150];
     int start = 0;
     if(is_tar(argv[3]))
@@ -105,6 +102,8 @@ int main(int argc, char *argv[])
         start = 3;
         my_strcpy(tar_name, "default");
     }
+    options_t *result = get_options(argv);
+
         switch(mode)
     {
         case 'x':

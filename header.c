@@ -80,6 +80,10 @@ void set_octal_values(struct tar_header *header, const struct stat *system_stat)
     {
         write_stderr("Error writing to header");
     }
+    if(S_ISDIR(system_stat->st_mode))
+    {
+        my_strncpy(header->size, "00000000000", sizeof(header->size) -1);
+    }
     num_to_octal(header->size, sizeof(header->size), (unsigned)system_stat->st_size);
     num_to_octal(header->mtime, sizeof(header->mtime), (unsigned)system_stat->st_mtime);
     num_to_octal(header->mode, sizeof(header->mode), system_stat->st_mode & 07777);
@@ -115,7 +119,7 @@ void set_permissions(struct tar_header *header, const struct stat *system_stat)
     }
 
 }
-
+//check if it is a file or directory
 void set_typeflag(struct tar_header *header, const struct stat *system_stat, const char *filename)
 {
     if(S_ISLNK(system_stat->st_mode)){
@@ -128,29 +132,25 @@ void set_typeflag(struct tar_header *header, const struct stat *system_stat, con
     } else if(S_ISDIR(system_stat->st_mode))
     {
         header->typeflag = '5';
+        if(header->name[my_strlen(header->name) -1] != '/')
+        {
+            my_strncat(header->name, "/", sizeof(header->name) - my_strlen(header->name) -1);
+        }
     } else {
         header->typeflag = '0';
     }
 }
 
-void write_header(const char *filename, struct tar_header *header)
+void write_header(const char *path, struct tar_header *header, struct stat *system_stat)
 {
-    struct stat system_stat;
     clear_header(header);
-    if(stat(filename, &system_stat) != 0)
-    {
-        write_stderr("Error getting file information");
-        return;
-    }
-
-
     header->name[sizeof(header->name) -1] = '\0';
-    dev_info(header, &system_stat);
-    set_prefix(header, filename);
-    set_octal_values(header, &system_stat);
+    dev_info(header, system_stat);
+    set_prefix(header, path);
+    set_octal_values(header, system_stat);
     set_string_values(header);
-    set_permissions(header, &system_stat);
-    set_typeflag(header, &system_stat, filename);
+    set_permissions(header, system_stat);
+    set_typeflag(header, system_stat, path);
     calculate_checksum(header);
 }
 

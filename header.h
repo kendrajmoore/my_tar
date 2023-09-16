@@ -43,7 +43,7 @@ void set_octal_values(struct tar_header *header, const struct stat *system_stat)
 void set_string_values(struct tar_header *header);
 void set_permissions(struct tar_header *header, const struct stat *system_stat);
 void set_typeflag(struct tar_header *header, const struct stat *system_stat, const char *filename);
-void write_header(const char *filename, struct tar_header *header);
+void write_header(const char *path, struct tar_header *header, struct stat *system_stat);
 
 
 #endif //MY_TAR_HEADER_H

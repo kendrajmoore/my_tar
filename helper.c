@@ -8,8 +8,8 @@
 #include "helper.h"
 
 #define TEMP_DIR "/tmp"
-#define MAX_TRIES 10
-
+#define MAX_TRIES 3
+//custom string functions
 int my_strlen(const char* input)
 {
     int length = 0;
@@ -91,41 +91,42 @@ void write_stderr(const char *error_message)
     write(2, error_message, length);
     write(2, "\n", 1);
 }
-
+//open fd for read only
 int open_read(const char *filename)
 {
     int fd_read = open(filename,  O_RDONLY);
     if(fd_read == -1)
     {
-        write_stderr("Error");
+        write_stderr("Error opening the file for reading");
         return 1;
     }
     return fd_read;
 
 }
-
+//open fd for read and write
 int open_read_write(const char *filename)
 {
     int fd_rw = open(filename, O_RDWR);
     if(fd_rw == -1)
     {
-        write_stderr("Error");
+        write_stderr("Error opening the file for reading or writing");
         return 1;
     }
     return fd_rw;
 }
-
+//open fd for read and write
 int open_write(const char *filename)
 {
     int fd_wr = open(filename, O_WRONLY | O_CREAT, 0644);
+    off_t current_offset = lseek(fd_wr, 0, SEEK_CUR);
     if(fd_wr == -1)
     {
-        write_stderr("Error");
+        write_stderr("Error opening the file for writing");
         return 1;
     }
     return fd_wr;
 }
-
+//calculate how much padding is needed to fill last block
 void block_math(int total_bytes_received, int write_fd)
 {
     int remainder = total_bytes_received % BLOCK_SIZE;
@@ -140,13 +141,12 @@ void block_math(int total_bytes_received, int write_fd)
 
     }
 }
-
+//add two 512 block to the end
 void end_padding(int dest)
 {
     char end_of_archive[ADD_PADDING] = {0};
     write(dest, end_of_archive, ADD_PADDING);
 }
-
 
 //convert mode, uid, gid, size, mtime from chars to octal
 void num_to_octal(char *string, int length, unsigned int num)
@@ -208,7 +208,7 @@ void int_to_str(int num, char *string)
     }
     string[idx] = '\0';
 }
-
+//function to create a temp file for updating archive
 char *generate_file()
 {
     char *temp_file = (char*)malloc(256);
@@ -272,16 +272,19 @@ char *generate_file()
     free(temp_file);
     return NULL;
 }
-
+//checks if an input is a file or directory. If directory recursively open files
 int write_archive(int dest, char *path, struct tar_header *header)
 {
-    struct stat file_stat;
-    if(stat(path, &file_stat) != 0)
+    struct stat system_stat;
+    if(stat(path, &system_stat) != 0)
     {
         write_stderr("Cannot find that file or directory");
         return 1;
     }
-    if(S_ISDIR(file_stat.st_mode))
+    write_header(path, header, &system_stat);
+    write(dest, header, sizeof(struct tar_header));
+
+    if(S_ISDIR(system_stat.st_mode))
     {
         DIR *dir = opendir(path);
         if(!dir)
@@ -308,7 +311,7 @@ int write_archive(int dest, char *path, struct tar_header *header)
             }
         }
         closedir(dir);
-    } else if(S_ISREG(file_stat.st_mode))
+    } else if(S_ISREG(system_stat.st_mode))
     {
         int src = open(path, O_RDONLY);
         if(src == -1)
@@ -325,7 +328,7 @@ int write_archive(int dest, char *path, struct tar_header *header)
     return 0;
 
 }
-
+//function to read an archive
 int read_archive(int tar_fd, struct tar_header *header)
 {
     if(read(tar_fd, header, sizeof(header)) != sizeof(header))

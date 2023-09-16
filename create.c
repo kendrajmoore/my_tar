@@ -5,13 +5,14 @@
 #include "header.h"
 #include "helper.h"
 
-
+//function to stream data to tar file
 int stream_archive(int read_fd, int write_fd)
 {
     char buffer[BLOCK_SIZE];
     int total_bytes_received = 0;
     int bytes_received;
-    while((bytes_received = read(read_fd, buffer, sizeof(buffer))) > 0){
+    while((bytes_received = read(read_fd, buffer, sizeof(buffer))) > 0)
+    {
         total_bytes_received += bytes_received;
         int bytes_written = write(write_fd, buffer, bytes_received);
         if(bytes_written != bytes_received)
@@ -32,7 +33,7 @@ int stream_archive(int read_fd, int write_fd)
     block_math(total_bytes_received, write_fd);
     return 0;
 }
-
+//entry point for -c
 int create_archive(char *tar_name, char **files, int file_count)
 {
     int dest = open_write(tar_name);
@@ -73,7 +74,7 @@ int append_to_archive(char *tar_name, char **files, int file_count)
     close(dest);
     return 0;
 }
-
+//entry point to -t
 int list_archive(char *tar_name)
 {
     int dest = open_read(tar_name);
@@ -98,13 +99,11 @@ int list_archive(char *tar_name)
             close(dest);
             return 1;
         }
-
     }
     close(dest);
     return 0;
 }
-
-
+//entry point for -u
 int update_archive(char *tar_name, char **files, int file_count)
 {
     char *temp_tar = generate_file();
@@ -143,7 +142,6 @@ int update_archive(char *tar_name, char **files, int file_count)
                         free(temp_tar);
                         return 1;
                     }
-
                 }
                 file_in_list = 1;
                 break;
@@ -175,7 +173,7 @@ int update_archive(char *tar_name, char **files, int file_count)
     free(temp_tar);
     return 0;
 }
-
+//entry point for -x
 int extract_archive(const char *tar_name)
 {
     int tar_fd = open_read(tar_name);
