@@ -89,7 +89,6 @@ int is_tar(char *input) // change to check .tar
 
 int main(int argc, char *argv[])
 {
-    char mode = argv[2][1];
     int file_count = argc - 3;
     char tar_name[150];
     int start = 0;
@@ -103,22 +102,32 @@ int main(int argc, char *argv[])
         my_strcpy(tar_name, "default");
     }
     options_t *result = get_options(argv);
-
-        switch(mode)
+    if(result->c)
     {
-        case 'x':
-            return extract_archive(tar_name);
-        case 'u':
-            return update_archive(tar_name, &argv[start], file_count);
-        case 't':
-            return list_archive(tar_name);
-        case 'r':
-            return append_to_archive(tar_name, &argv[start], file_count);
-        case 'c':
-            return create_archive(tar_name, &argv[start], file_count);
-        default:
-            return 1;
+        return create_archive(tar_name, &argv[start], file_count);
     }
+    if(result->r && result->f)
+    {
+        return append_to_archive(tar_name, &argv[start], file_count);
+    }
+    if(result->u && result->f)
+    {
+        return update_archive(tar_name, &argv[start], file_count);
+    }
+    if(result->t)
+    {
+        return list_archive(tar_name);
+    }
+    if(result->x)
+    {
+        return extract_archive(tar_name);
+    }
+    else
+    {
+        write_stderr("Error reading the mode");
+        return 1;
+    }
+    return 0;
 
 }
 
