@@ -92,13 +92,21 @@ int list_archive(char *tar_name)
         unsigned int size = octal_to_num(header.size, sizeof(header.size));
         write(1, header.name, my_strlen(header.name));
         write(1, "\n", 1);
-        int blocks = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
-        if(lseek(dest, blocks * BLOCK_SIZE, SEEK_CUR) == -1)
+        if(size == 0)
         {
-            write_stderr("Error seeking in a tar file");
-            close(dest);
-            return 1;
+            continue;
+        } else
+        {
+            int blocks = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+            if(lseek(dest, blocks * BLOCK_SIZE, SEEK_CUR) == -1)
+            {
+                write_stderr("Error seeking in a tar file");
+                close(dest);
+                return 1;
+            }
+
         }
+
     }
     close(dest);
     return 0;

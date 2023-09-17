@@ -331,9 +331,10 @@ int write_archive(int dest, char *path, struct tar_header *header)
 //function to read an archive
 int read_archive(int tar_fd, struct tar_header *header)
 {
-    if(read(tar_fd, header, sizeof(header)) != sizeof(header))
+    int bytes_read = read(tar_fd, header, sizeof(struct tar_header));
+    if(bytes_read != sizeof(struct tar_header))
     {
-        write_stderr("Error reading tar file");
+        write_stderr("Error reading tar file, incomplete header read");
         return 1;
     }
     return 0;
