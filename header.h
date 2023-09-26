@@ -15,6 +15,8 @@
 #include <stdlib.h>
 #include "helper.h"
 
+//https://man.freebsd.org/cgi/man.cgi?tar(5)
+
 struct tar_header {
     char name[100];
     char mode[8];

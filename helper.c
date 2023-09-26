@@ -10,7 +10,27 @@
 #define TEMP_DIR "/tmp"
 #define MAX_TRIES 3
 //custom string functions
-int my_strlen(const char* input)
+
+char *my_strrchr(const char *input, int n)
+{
+    char *last = NULL;
+    char ch = (char)n;
+    while(*input)
+    {
+        if(*input == ch)
+        {
+            last = (char*)input;
+        }
+        input++;
+    }
+    if(ch == '\0')
+    {
+        return (char*)input;
+    }
+    return last;
+}
+
+int my_strlen(const char *input)
 {
     int length = 0;
     while(*input != '\0')
@@ -40,33 +60,24 @@ char *my_strncpy(char *dest, const char *src, int num)
 char *my_strcpy(char *dest, const char *src)
 {
     char *old_dest = dest;
-    while((*dest++ = *src++));
-    return old_dest;
+   while(*src != '\0')
+   {
+       *dest = *src;
+       dest++;
+       src++;
+   }
+   *dest = '\0';
+   return old_dest;
 }
 
-int my_strcmp (char * param_1, char * param_2)
+int my_strcmp (char *param_1, char *param_2)
 {
-    int sum_1 = 0, sum_2 = 0;
-    int i_1 = 0, i_2 = 0;
-
-    while(i_1 < my_strlen(param_1))
+    while(*param_1 && (*param_1 == *param_2))
     {
-        sum_1 += param_1[i_1];
-        i_1++;
+        param_1++;
+        param_2++;
     }
-
-    while(i_2 < my_strlen(param_2))
-    {
-        sum_2 += param_2[i_2];
-        i_2++;
-    }
-
-    if (sum_1 > sum_2)
-        return -1;
-    else if (sum_1 < sum_2)
-        return 1;
-    else
-        return 0;
+    return *(unsigned char *)param_1 - *(unsigned char *)param_2;
 }
 
 char *my_strncat(char *dest, const char *src, size_t count)
@@ -98,7 +109,7 @@ int open_read(const char *filename)
     if(fd_read == -1)
     {
         write_stderr("Error opening the file for reading");
-        return 1;
+        return -1;
     }
     return fd_read;
 
@@ -110,7 +121,7 @@ int open_read_write(const char *filename)
     if(fd_rw == -1)
     {
         write_stderr("Error opening the file for reading or writing");
-        return 1;
+        return -1;
     }
     return fd_rw;
 }
@@ -122,7 +133,7 @@ int open_write(const char *filename)
     if(fd_wr == -1)
     {
         write_stderr("Error opening the file for writing");
-        return 1;
+        return -1;
     }
     return fd_wr;
 }
@@ -208,70 +219,70 @@ void int_to_str(int num, char *string)
     }
     string[idx] = '\0';
 }
+
+void convert_to_two_digit_str(char *dest, int num)
+{
+    dest[0] = '0' + (num / 10);  // Tens place
+    dest[1] = '0' + (num % 10);  // Units place
+    dest[2] = '\0';
+}
+
+
 //function to create a temp file for updating archive
-char *generate_file()
+char *generate_file(const char *tar_name)
 {
     char *temp_file = (char*)malloc(256);
-    if(!temp_file)
+    if (!temp_file)
     {
         return NULL;
     }
-    int attempts = 0;
-    while(attempts < MAX_TRIES)
-    {
-        char time_string[20] = {0};
-        char pid_string[10] = {0};
-        char random_string[10] = {0};
 
-        char *ptr = temp_file;
-        char *base = TEMP_DIR "/tempfile_";
-        while((*ptr = *base))
+    // Extract base name from tar_name (e.g., "dog" from "dog.tar" or "/path/dog.tar")
+    const char *base_tar_name = my_strrchr(tar_name, '/');
+    if (base_tar_name)
+    {
+        base_tar_name++; // move past the '/'
+    }
+    else
+    {
+        base_tar_name = tar_name;
+    }
+    char stripped_name[256] = {0};
+    my_strncpy(stripped_name, base_tar_name, my_strlen(base_tar_name) - 4); // -4 to strip ".tar"
+    stripped_name[my_strlen(base_tar_name) - 4] = '\0'; // Ensure null-termination after strncpy
+
+    int attempts = 0;
+    int fd; // File descriptor for the created file
+    while (attempts < MAX_TRIES)
+    {
+        // Generate two random digits
+        int random_digits = rand() % 100;
+
+        // Convert random digits to string manually
+        char digit_str[3];
+        convert_to_two_digit_str(digit_str, random_digits);
+
+        // Construct temp_file using strncpy and strncat
+        my_strncpy(temp_file, TEMP_DIR, 255); // 255 to leave room for null-terminator
+        my_strncat(temp_file, "/temp", 255 - my_strlen(temp_file));
+        my_strncat(temp_file, stripped_name, 255 - my_strlen(temp_file));
+        my_strncat(temp_file, digit_str, 255 - my_strlen(temp_file));
+        my_strncat(temp_file, ".tmp", 255 - my_strlen(temp_file));
+
+        // Try to create the file
+        fd = open(temp_file, O_RDWR | O_CREAT | O_EXCL, 0666);
+        if (fd != -1)
         {
-            ptr++;
-            base++;
+            close(fd); // Close the file after creating it
+            return temp_file; // Return the name of the successfully created file
         }
-        time_t now;
-        time(&now);
-        int_to_str((int)now, time_string);
-        char *t_ptr = time_string;
-        while((*ptr = *t_ptr))
-        {
-            ptr++;
-            t_ptr++;
-        }
-        *ptr = '-';
-        *ptr++;
-        int_to_str(getpid(), pid_string);
-        char *p_ptr = pid_string;
-        while((*ptr = *p_ptr))
-        {
-            ptr++;
-            p_ptr++;
-        }
-        *ptr = '-';
-        int_to_str(rand(), random_string);
-        char *r_ptr = random_string;
-        while((*ptr = *r_ptr))
-        {
-            ptr++;
-            r_ptr++;
-        }
-        char *extension = ".tmp";
-        while((*ptr = *extension))
-        {
-            ptr++;
-            extension++;
-        }
-        struct stat buffer;
-        if(stat(temp_file, &buffer) != 0)
-        {
-            return temp_file;
-        }
+
         attempts++;
     }
     free(temp_file);
     return NULL;
 }
+
 //checks if an input is a file or directory. If directory recursively open files
 int write_archive(int dest, char *path, struct tar_header *header)
 {

@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
     {
         return update_archive(tar_name, &argv[start], file_count);
     }
-    if(result->t)
+    if(result->t && result->f)
     {
         return list_archive(tar_name);
     }

@@ -8,11 +8,14 @@ void set_prefix(struct tar_header *header, const char *filename)
     if(!header || !filename)
     {
         write_stderr("Cannot create a prefix");
+        return;
     }
+    char modified_name[260] = "._";
+    my_strncat(modified_name, filename, sizeof(modified_name) -3);
     int length = my_strlen(filename);
     if(length <= 100) //if filename less than 100 copy to header
     {
-        my_strncpy(header->name, filename, sizeof(header->name));
+        my_strncpy(header->name, modified_name, sizeof(header->name));
     } else
     {
         int prefix_length = length - 100; //determine prefix length
@@ -21,8 +24,8 @@ void set_prefix(struct tar_header *header, const char *filename)
             write_stderr("filename is too long");
             return;
         }
-        my_strncpy(header->prefix, filename, prefix_length);
-        my_strncpy(header->name, filename + prefix_length, sizeof(header->name));
+        my_strncpy(header->prefix, modified_name, prefix_length);
+        my_strncpy(header->name, modified_name + prefix_length, sizeof(header->name));
     }
 }
 //set device info for header
