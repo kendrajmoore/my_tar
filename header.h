@@ -1,19 +1,9 @@
 //
 // Created by Kendra Moore on 9/9/23.
 //
-
 #ifndef MY_TAR_HEADER_H
 #define MY_TAR_HEADER_H
-
-#include <fcntl.h>
-#include <grp.h>
-#include <pwd.h>
-#include <stdio.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include "helper.h"
 
 //https://man.freebsd.org/cgi/man.cgi?tar(5)
 
@@ -49,3 +39,4 @@ void write_header(const char *path, struct tar_header *header, struct stat *syst
 
 
 #endif //MY_TAR_HEADER_H
+

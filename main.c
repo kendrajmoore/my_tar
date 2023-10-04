@@ -1,5 +1,3 @@
-//
-// Created by Kendra Moore on 9/9/23.
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -18,8 +16,7 @@ typedef struct s_options {
 } options_t;
 
 
-options_t * get_options(char ** av)
-{
+options_t * get_options(char ** av){
     // malloc the return val
     options_t * ret = malloc(sizeof(options_t) + 1);
 
@@ -32,14 +29,10 @@ options_t * get_options(char ** av)
     ret->x = false;
     ret->num_of_opts = 0;
 
-    for (int i = 0, j; av[i]; i++)
-    {
-        if (av[i][0] == '-')
-        {
-            for (j = 1; av[i][j]; j++)
-            {
-                switch (av[i][j])
-                {
+    for (int i = 0, j; av[i]; i++){
+        if (av[i][0] == '-'){
+            for (j = 1; av[i][j]; j++){
+                switch (av[i][j]){
                     case 'c':
                         ret->c = true;
                         break;
@@ -69,65 +62,54 @@ options_t * get_options(char ** av)
     return ret;
 }
 
-int is_tar(char *input) // change to check .tar
-{
+//function to check for -.tar as a parameter
+int is_tar(char *input) {
     int len = my_strlen(input);
     int min_length = 4;
-    if(len < min_length)
-    {
+    if(len < min_length){
         return 0;
     }
     const char *ending = input + len -4;
-    if(my_strcmp(ending, ".tar") == 0)
-    {
+    if(my_strcmp(ending, ".tar") == 0){
         return 1;
     }
     return 0;
 }
 
-
-
-int main(int argc, char *argv[])
-{
-    int file_count = argc - 3;
+int main(int argc, char *argv[]){
+    int file_count = argc - 2;
     char tar_name[150];
     int start = 0;
-    if(is_tar(argv[3]))
-    {
-        start = 4;
-        file_count -= 1;
-        my_strcpy(tar_name, argv[3]);
-    } else {
+    if(is_tar(argv[2])){
         start = 3;
+        file_count -= 1;
+        my_strcpy(tar_name, argv[2]);
+    } else {
+        start = 2;
         my_strcpy(tar_name, "default");
     }
     options_t *result = get_options(argv);
-    if(result->c)
-    {
+    if(result->c){
+
         return create_archive(tar_name, &argv[start], file_count);
     }
-    if(result->r && result->f)
-    {
+    if(result->r && result->f){
         return append_to_archive(tar_name, &argv[start], file_count);
     }
-    if(result->u && result->f)
-    {
+    if(result->u && result->f){
         return update_archive(tar_name, &argv[start], file_count);
     }
-    if(result->t && result->f)
-    {
+    if(result->t){
         return list_archive(tar_name);
     }
-    if(result->x)
-    {
+    if(result->x){
         return extract_archive(tar_name);
     }
-    else
-    {
-        write_stderr("Error reading the mode");
+    else {
+        write_stderr("Error reading the mode or incorrect combination of options provided.");
         return 1;
     }
-    return 0;
 
 }
+
 
